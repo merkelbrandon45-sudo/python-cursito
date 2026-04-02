@@ -179,6 +179,13 @@ DEFAULT_USERS = {
 # Solo habilitar reset de Bran por variable de entorno en casos puntuales.
 RESET_BRAN_PASSWORD_ON_START = os.environ.get('RESET_BRAN_PASSWORD_ON_START', 'false').lower() == 'true'
 
+
+def is_password_hash(value):
+    """Detecta hashes soportados por Werkzeug para evitar re-hashear hashes existentes."""
+    if not value or not isinstance(value, str):
+        return False
+    return value.startswith('pbkdf2:') or value.startswith('scrypt:') or value.startswith('argon2:')
+
 def encrypt_data(data):
     payload = json.dumps(data, ensure_ascii=False).encode('utf-8')
     if FERNET:
@@ -295,13 +302,17 @@ def load_users():
         # marcar que ya se aplicó el reset en esta ejecución
         RESET_BRAN_PASSWORD_ON_START = False
 
-    # Hash de passwords si no lo están
+    # Hash de passwords solo para valores legacy en texto plano.
+    migrated_passwords = False
     for uid, info in users.items():
         pw = info.get('password')
-        if pw and not pw.startswith('pbkdf2:sha256:'):
+        if pw and not is_password_hash(pw):
             users[uid]['password'] = generate_password_hash(pw)
+            migrated_passwords = True
 
-    if not USE_SQLITE:
+    if USE_SQLITE and migrated_passwords:
+        save_users(users)
+    elif not USE_SQLITE:
         save_users(users)
     return users
 
