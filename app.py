@@ -944,7 +944,7 @@ def download_apk():
 
 
 def run_app():
-    if ngrok is not None:
+    if ngrok is not None and os.environ.get('FLASK_ENV') != 'production':
         thread = threading.Thread(target=maintain_ngrok, daemon=True)
         thread.start()
 
