@@ -494,6 +494,16 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
             'outtmpl': os.path.join(MUSIC_FOLDER, '%(title)s.%(ext)s'),
             'quiet': False,
             'no_warnings': False,
+            'socket_timeout': 30,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+            'age_limit': None,
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['webpage'],
+                }
+            },
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -903,7 +913,15 @@ def search_youtube():
         return jsonify({'success': False, 'message': 'Consulta vacía'}), 400
 
     query_url = f"ytsearch10:{query}"
-    ydl_opts = {'quiet': True, 'simulate': True, 'skip_download': True}
+    ydl_opts = {
+        'quiet': True,
+        'simulate': True,
+        'skip_download': True,
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        'socket_timeout': 30,
+    }
     results = []
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
