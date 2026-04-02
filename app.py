@@ -757,7 +757,7 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
         if is_bot_check:
             return {
                 'success': False,
-                'message': 'YouTube bloqueó esta descarga temporalmente. Reintenta en unos minutos o prueba otra canción.'
+                'message': 'No se pudo descargar esta canción ahora. Prueba otra opción.'
             }
         return {
             'success': False,
