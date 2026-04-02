@@ -15,6 +15,8 @@ import json
 import time
 from datetime import datetime
 from urllib.parse import quote_plus
+import re
+import subprocess
 
 try:
     from textblob import TextBlob
@@ -30,6 +32,11 @@ try:
     from youtubesearchpython import VideosSearch
 except ImportError:
     VideosSearch = None
+
+try:
+    from pytubefix import YouTube
+except ImportError:
+    YouTube = None
 
 from werkzeug.security import generate_password_hash, check_password_hash
 import shutil
@@ -492,6 +499,90 @@ def analyze_sentiment(text):
         return "neutral", "😐"
 
 
+def sanitize_filename(name):
+    clean = re.sub(r'[\\/:*?"<>|]+', '', (name or '').strip())
+    clean = re.sub(r'\s+', ' ', clean)
+    return clean[:120] if clean else f'song_{int(time.time())}'
+
+
+def unique_path_with_extension(base_name, extension):
+    base_path = os.path.join(MUSIC_FOLDER, f'{base_name}.{extension}')
+    if not os.path.exists(base_path):
+        return base_path
+
+    idx = 1
+    while True:
+        candidate = os.path.join(MUSIC_FOLDER, f'{base_name}_{idx}.{extension}')
+        if not os.path.exists(candidate):
+            return candidate
+        idx += 1
+
+
+def save_download_for_user(user_id, title, filename, url, thumbnail, duration):
+    sentiment, emoji = analyze_sentiment(title)
+    users = load_users()
+    if user_id in users:
+        users[user_id]['downloads'].append({
+            'title': title,
+            'filename': filename,
+            'url': url,
+            'thumbnail': thumbnail,
+            'duration': duration,
+            'sentiment': sentiment,
+            'sentiment_emoji': emoji,
+            'downloaded_at': datetime.now().isoformat(),
+            'user_id': user_id
+        })
+        save_users(users)
+    return sentiment, emoji
+
+
+def download_with_pytubefix(url, user_id):
+    if YouTube is None:
+        return {'success': False, 'message': 'No se pudo descargar en este momento. Reintenta en unos minutos.'}
+
+    try:
+        yt = YouTube(url)
+        stream = yt.streams.filter(only_audio=True, file_extension='mp4').order_by('abr').desc().first()
+        if stream is None:
+            stream = yt.streams.filter(only_audio=True).order_by('abr').desc().first()
+        if stream is None:
+            return {'success': False, 'message': 'No se encontró un stream de audio compatible.'}
+
+        title = yt.title or 'Desconocida'
+        safe_title = sanitize_filename(title)
+        temp_m4a_path = unique_path_with_extension(safe_title, 'm4a')
+        final_mp3_path = unique_path_with_extension(safe_title, 'mp3')
+
+        stream.download(output_path=MUSIC_FOLDER, filename=os.path.basename(temp_m4a_path))
+
+        cmd = [
+            'ffmpeg', '-y', '-i', temp_m4a_path,
+            '-vn', '-acodec', 'libmp3lame', '-ab', '192k',
+            final_mp3_path
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        if os.path.exists(temp_m4a_path):
+            os.remove(temp_m4a_path)
+
+        thumbnail = getattr(yt, 'thumbnail_url', '') or ''
+        duration = int(getattr(yt, 'length', 0) or 0)
+        filename = os.path.basename(final_mp3_path)
+        sentiment, emoji = save_download_for_user(user_id, title, filename, url, thumbnail, duration)
+
+        return {
+            'success': True,
+            'filename': filename,
+            'message': f'Canción descargada: {title}',
+            'thumbnail': thumbnail,
+            'sentiment': sentiment,
+            'sentiment_emoji': emoji
+        }
+    except Exception as e:
+        return {'success': False, 'message': f'Error al descargar (fallback): {str(e)}'}
+
+
 def duration_to_seconds(duration_text):
     if not duration_text:
         return 0
@@ -639,29 +730,12 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
             thumbnail = info.get('thumbnail', '')
             duration = info.get('duration', 0)
             
-            # Analizar sentimiento del título
-            sentiment, emoji = analyze_sentiment(title)
-            
-            # Guardar la descarga en el historial del usuario
-            users = load_users()
-            if user_id in users:
-                download_info = {
-                    'title': title,
-                    'filename': os.path.basename(filename.replace('.webm', '.mp3').replace('.m4a', '.mp3')),
-                    'url': url,
-                    'thumbnail': thumbnail,
-                    'duration': duration,
-                    'sentiment': sentiment,
-                    'sentiment_emoji': emoji,
-                    'downloaded_at': datetime.now().isoformat(),
-                    'user_id': user_id
-                }
-                users[user_id]['downloads'].append(download_info)
-                save_users(users)
+            out_filename = os.path.basename(filename.replace('.webm', '.mp3').replace('.m4a', '.mp3'))
+            sentiment, emoji = save_download_for_user(user_id, title, out_filename, url, thumbnail, duration)
 
             return {
                 'success': True,
-                'filename': os.path.basename(filename.replace('.webm', '.mp3').replace('.m4a', '.mp3')),
+                'filename': out_filename,
                 'message': f"Canción descargada: {title}",
                 'thumbnail': thumbnail,
                 'sentiment': sentiment,
@@ -670,9 +744,12 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
     except Exception as e:
         err = str(e)
         if 'Sign in to confirm you\'re not a bot' in err:
+            fallback = download_with_pytubefix(url, user_id)
+            if fallback.get('success'):
+                return fallback
             return {
                 'success': False,
-                'message': 'YouTube bloqueó esta descarga temporalmente. Prueba otra canción o reintenta en unos minutos.'
+                'message': 'YouTube bloqueó esta descarga temporalmente. Reintenta en unos minutos o prueba otra canción.'
             }
         return {
             'success': False,
