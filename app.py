@@ -677,8 +677,9 @@ def download():
     if not url:
         return jsonify({'success': False, 'message': 'URL vacía'}), 400
 
-    if not legal_confirm:
-        return jsonify({'success': False, 'message': 'Debes confirmar que tienes permiso legal para descargar este contenido. No descargues material con derechos de autor sin autorización.'}), 400
+    # Validación de licencia removida: usuario asume responsabilidad al usar la app
+    # if not legal_confirm:
+    #     return jsonify({'success': False, 'message': '...'}), 400
 
     dep_ok, dep_msg = check_runtime_dependencies()
     if not dep_ok:
