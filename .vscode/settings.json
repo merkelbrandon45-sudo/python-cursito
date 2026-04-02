@@ -1,0 +1,6 @@
+{
+    "chat.tools.terminal.ignoreDefaultAutoApproveRules": true,
+    "files.autoSave": "onWindowChange",
+    "editor.formatOnSave": true,
+    "python.defaultInterpreterPath": "python.analys"
+}

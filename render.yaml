@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: python-cursito
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health

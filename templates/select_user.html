@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleccionar Usuario - Descargador de YouTube MP3</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 100%;
+            max-width: 600px;
+            padding: 40px;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header i {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .users-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .user-card {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .user-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .user-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .user-name {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .user-description {
+            color: #666;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .user-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-setup {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .info-section {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 20px;
+            border-radius: 5px;
+            margin-top: 30px;
+        }
+
+        .info-section h3 {
+            color: #0c5aa0;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .info-section p {
+            color: #0c5aa0;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .info-section i {
+            margin-right: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .users-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .user-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <i class="fas fa-users"></i>
+            <h1>🎵 Descargador MP3</h1>
+            <p>Selecciona tu perfil de usuario</p>
+        </div>
+
+        <div class="users-grid">
+            <div class="user-card" onclick="selectUser('bran')">
+                <i class="fas fa-user-shield user-icon"></i>
+                <div class="user-name">Bran</div>
+                <div class="user-description">
+                    Tu perfil personal con todas tus canciones descargadas
+                </div>
+                <span class="user-status status-active">Activo</span>
+                <div style="margin-top: 8px; font-size: 0.8em;"><a href="/reset-bran" style="color: #334ea8; text-decoration: none;">Restablecer contraseña de Bran</a></div>
+            </div>
+
+            <div class="user-card" onclick="selectUser('bauti')">
+                <i class="fas fa-user-friends user-icon"></i>
+                <div class="user-name">Bauti</div>
+                <div class="user-description">
+                    Perfil para compartir con amigos. Recibe sugerencias de música
+                </div>
+                <span class="user-status status-setup">Configurar</span>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3><i class="fas fa-info-circle"></i> Información</h3>
+            <p>
+                El <strong>Usuario Principal</strong> tiene acceso completo a todas las funciones.<br>
+                El <strong>Usuario Amigo</strong> puede crear su propia contraseña y recibir sugerencias de canciones del Usuario Principal.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function selectUser(userId) {
+            window.location.href = `/login/${userId}`;
+        }
+    </script>
+</body>
+</html>

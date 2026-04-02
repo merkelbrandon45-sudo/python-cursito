@@ -1,0 +1,26 @@
+{
+  "name": "Brauti - Reproductor MP3 YouTube",
+  "short_name": "Brauti",
+  "description": "Descarga, reproduce y gestiona música de YouTube, con modo PWA y notificaciones flotantes.",
+  "start_url": "/?utm_source=install",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1a1a2e",
+  "categories": ["music", "utilities"],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

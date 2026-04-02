@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>brauti - Música Local</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="canonical" href="https://brauti.com/">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="application-name" content="Brauti">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Brauti">
+    <meta name="theme-color" content="#1a1a2e">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1><i class="fas fa-music"></i> {{ user.name }} - Descargador MP3</h1>
+                <p>Descarga tus canciones favoritas desde YouTube</p>
+            </div>
+            <div class="header-logout">
+                <button id="installBtn" class="btn-logout hidden" type="button">
+                    <i class="fas fa-download"></i> Instalar Brauti
+                </button>
+                <a href="/static/brauti.apk" class="btn-logout" download>
+                    <i class="fas fa-file-download"></i> Descargar APK
+                </a>
+                <a href="{{ url_for('logout') }}" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+                </a>
+            </div>
+        </header>
+
+        <main>
+            <!-- Sección de descarga -->
+            <section class="download-section">
+                <h2>Descarga una canción</h2>
+                <div class="download-form">
+                    <input 
+                        type="text" 
+                        id="urlInput" 
+                        placeholder="Pega aquí el enlace de YouTube..."
+                        class="url-input"
+                    >
+                    <button id="downloadBtn" class="btn btn-primary">
+                        <i class="fas fa-download"></i> Descargar
+                    </button>
+                </div>
+                <div id="statusMessage" class="status-message hidden"></div>
+                <div id="progressBar" class="progress-bar hidden">
+                    <div class="progress-fill"></div>
+                </div>
+            </section>
+
+            <!-- Sección de sugerencias -->
+            {% if suggestions %}
+            <section class="suggestions-section">
+                <h2><i class="fas fa-lightbulb"></i> Sugerencias de Música</h2>
+                <div class="suggestions-container">
+                    {% for suggestion in suggestions %}
+                    <div class="suggestion-bubble" onclick="downloadSuggestion('{{ suggestion.title }}', '{{ suggestion.url }}')">
+                        <div class="suggestion-content">
+                            <i class="fas fa-music"></i>
+                            <span class="suggestion-title">{{ suggestion.title }}</span>
+                        </div>
+                        <div class="suggestion-actions">
+                            <i class="fas fa-download"></i>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="search-section">
+                <h2><i class="fas fa-search"></i> Buscar en YouTube</h2>
+                <div class="search-form">
+                    <input id="searchInput" type="text" placeholder="Buscar canciones en YouTube..." class="url-input">
+                    <button id="searchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Buscar</button>
+                </div>
+                <div id="searchResults" class="songs-list"></div>
+            </section>
+
+            <section class="playlist-section">
+                <h2><i class="fas fa-list"></i> Playlists</h2>
+                <div class="playlist-form">
+                    <input id="playlistInput" type="text" placeholder="Nombre de nueva playlist" class="url-input">
+                    <button id="createPlaylistBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Crear</button>
+                </div>
+                <div id="playlistsContainer" class="songs-list"></div>
+            </section>
+
+            <section class="app-install-section">
+                <h2><i class="fas fa-mobile-alt"></i> Instala Brauti en tu móvil</h2>
+                <p>Usa el botón “Instalar Brauti” para agregarlo a tu pantalla de inicio (PWA). Si no aparece el prompt, descarga la APK aquí arriba.</p>
+            </section>
+
+            <section class="songs-section">
+                <h2>Tus Canciones (<span id="songCount">0</span>)</h2>
+                <div id="songsList" class="songs-list">
+                    <p class="empty-message">No hay canciones descargadas aún</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal de información de canción -->
+        <div id="songModal" class="song-modal hidden">
+            <div class="song-modal-content">
+                <div class="song-modal-header">
+                    <h3>Reproduciendo</h3>
+                    <button class="close-modal" onclick="closeSongModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="song-modal-body">
+                    <div class="song-thumbnail">
+                        <img id="songThumbnail" src="" alt="Portada" onerror="this.src='/static/default-album.png'">
+                    </div>
+                    <div class="song-info">
+                        <h4 id="songTitle">Título de la canción</h4>
+                        <div class="song-sentiment">
+                            <span id="sentimentEmoji">😐</span>
+                            <span id="sentimentText">Sentimiento</span>
+                        </div>
+                        <div class="song-details">
+                            <p><i class="fas fa-clock"></i> <span id="songDuration">0:00</span></p>
+                            <p><i class="fas fa-calendar"></i> <span id="songDate">Fecha</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 Descargador de YouTube MP3 - Almacena tus canciones favoritas</p>
+        </footer>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('{{ url_for("static", filename="sw.js") }}')
+                .then(registration => console.log('SW registrado'))
+                .catch(error => console.log('SW falló', error));
+        }
+    </script>
+</body>
+</html>
