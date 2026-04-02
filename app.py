@@ -743,10 +743,18 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
             }
     except Exception as e:
         err = str(e)
-        if 'Sign in to confirm you\'re not a bot' in err:
+        err_l = err.lower()
+
+        # YouTube cambia este mensaje con frecuencia (you're / you’re / variantes).
+        is_bot_check = ('sign in to confirm' in err_l and 'not a bot' in err_l) or ('use --cookies' in err_l)
+
+        # Intentar siempre fallback para enlaces de YouTube antes de fallar.
+        if 'youtube.com' in url or 'youtu.be' in url:
             fallback = download_with_pytubefix(url, user_id)
             if fallback.get('success'):
                 return fallback
+
+        if is_bot_check:
             return {
                 'success': False,
                 'message': 'YouTube bloqueó esta descarga temporalmente. Reintenta en unos minutos o prueba otra canción.'
