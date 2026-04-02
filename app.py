@@ -25,6 +25,11 @@ try:
 except ImportError:
     requests = None
 
+try:
+    from youtubesearchpython import VideosSearch
+except ImportError:
+    VideosSearch = None
+
 from werkzeug.security import generate_password_hash, check_password_hash
 import shutil
 import sqlite3
@@ -905,37 +910,71 @@ def add_to_playlist():
 @app.route('/api/search', methods=['GET'])
 @login_required
 def search_youtube():
-    if yt_dlp is None:
-        return jsonify({'success': False, 'message': 'Dependencia yt_dlp no instalada. Ejecuta pip install yt-dlp'}), 500
-
     query = request.args.get('q', '').strip()
     if not query:
         return jsonify({'success': False, 'message': 'Consulta vacía'}), 400
 
-    query_url = f"ytsearch10:{query}"
-    ydl_opts = {
-        'quiet': True,
-        'simulate': True,
-        'skip_download': True,
-        'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-        'socket_timeout': 30,
-    }
     results = []
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(query_url, download=False)
-        for entry in info.get('entries', []):
-            results.append({
-                'id': entry.get('id'),
-                'title': entry.get('title'),
-                'url': entry.get('webpage_url'),
-                'duration': entry.get('duration'),
-                'thumbnail': entry.get('thumbnail')
-            })
+    # Busqueda principal: mas estable que yt-dlp para consultas de texto.
+    if VideosSearch is not None:
+        try:
+            search = VideosSearch(query, limit=10)
+            for item in search.result().get('result', []):
+                duration_text = item.get('duration') or ''
+                duration = 0
+                if duration_text:
+                    parts = [int(p) for p in duration_text.split(':') if p.isdigit()]
+                    if len(parts) == 3:
+                        duration = parts[0] * 3600 + parts[1] * 60 + parts[2]
+                    elif len(parts) == 2:
+                        duration = parts[0] * 60 + parts[1]
+                    elif len(parts) == 1:
+                        duration = parts[0]
 
-    return jsonify({'success': True, 'results': results})
+                video_id = item.get('id', '')
+                results.append({
+                    'id': video_id,
+                    'title': item.get('title'),
+                    'url': f"https://www.youtube.com/watch?v={video_id}" if video_id else item.get('link', ''),
+                    'duration': duration,
+                    'thumbnail': (item.get('thumbnails') or [{}])[0].get('url', '')
+                })
+
+            return jsonify({'success': True, 'results': results})
+        except Exception as e:
+            app.logger.warning(f'Fallback a yt-dlp para search: {e}')
+
+    # Fallback: yt-dlp si la libreria principal no esta disponible.
+    if yt_dlp is None:
+        return jsonify({'success': False, 'message': 'No se pudo buscar en este momento. Reintenta en unos segundos.'}), 500
+
+    try:
+        query_url = f"ytsearch10:{query}"
+        ydl_opts = {
+            'quiet': True,
+            'simulate': True,
+            'skip_download': True,
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            },
+            'socket_timeout': 30,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(query_url, download=False)
+            for entry in info.get('entries', []):
+                results.append({
+                    'id': entry.get('id'),
+                    'title': entry.get('title'),
+                    'url': entry.get('webpage_url'),
+                    'duration': entry.get('duration'),
+                    'thumbnail': entry.get('thumbnail')
+                })
+
+        return jsonify({'success': True, 'results': results})
+    except Exception:
+        return jsonify({'success': False, 'message': 'Error al buscar en YouTube. Intenta con otra palabra clave.'}), 502
 
 @app.route('/api/suggest-download', methods=['POST'])
 @login_required

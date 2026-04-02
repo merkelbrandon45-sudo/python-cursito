@@ -5,3 +5,4 @@ requests
 cryptography
 pyngrok
 flask-talisman
+youtube-search-python
