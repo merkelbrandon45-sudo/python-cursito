@@ -14,6 +14,7 @@ from functools import wraps
 import json
 import time
 from datetime import datetime
+from urllib.parse import quote_plus
 
 try:
     from textblob import TextBlob
@@ -490,6 +491,111 @@ def analyze_sentiment(text):
     except:
         return "neutral", "😐"
 
+
+def duration_to_seconds(duration_text):
+    if not duration_text:
+        return 0
+    try:
+        parts = [int(p) for p in duration_text.split(':')]
+    except Exception:
+        return 0
+
+    if len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    if len(parts) == 2:
+        return parts[0] * 60 + parts[1]
+    if len(parts) == 1:
+        return parts[0]
+    return 0
+
+
+def collect_video_renderers(node, bucket):
+    if isinstance(node, dict):
+        renderer = node.get('videoRenderer')
+        if isinstance(renderer, dict):
+            bucket.append(renderer)
+        for value in node.values():
+            collect_video_renderers(value, bucket)
+    elif isinstance(node, list):
+        for item in node:
+            collect_video_renderers(item, bucket)
+
+
+def search_youtube_html(query, limit=10):
+    if requests is None:
+        return []
+
+    url = f"https://www.youtube.com/results?search_query={quote_plus(query)}&hl=es&gl=US"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8'
+    }
+
+    try:
+        response = requests.get(url, headers=headers, timeout=20)
+    except Exception:
+        return []
+
+    if response.status_code != 200:
+        return []
+
+    html = response.text
+    marker = 'var ytInitialData = '
+    start = html.find(marker)
+    if start == -1:
+        marker = 'ytInitialData = '
+        start = html.find(marker)
+        if start == -1:
+            return []
+
+    json_start = start + len(marker)
+    json_end = html.find(';</script>', json_start)
+    if json_end == -1:
+        return []
+
+    raw_json = html[json_start:json_end].strip()
+    if raw_json.endswith(';'):
+        raw_json = raw_json[:-1]
+
+    try:
+        data = json.loads(raw_json)
+    except Exception:
+        return []
+
+    renderers = []
+    collect_video_renderers(data, renderers)
+
+    results = []
+    for vr in renderers:
+        video_id = vr.get('videoId', '')
+        if not video_id:
+            continue
+
+        title_obj = vr.get('title', {})
+        title = title_obj.get('simpleText', '')
+        if not title and isinstance(title_obj.get('runs'), list):
+            title = ''.join(run.get('text', '') for run in title_obj.get('runs', []))
+
+        if not title:
+            continue
+
+        duration_text = (vr.get('lengthText') or {}).get('simpleText', '')
+        thumb_list = (vr.get('thumbnail') or {}).get('thumbnails', [])
+        thumbnail = thumb_list[-1].get('url', '') if thumb_list else ''
+
+        results.append({
+            'id': video_id,
+            'title': title,
+            'url': f'https://www.youtube.com/watch?v={video_id}',
+            'duration': duration_to_seconds(duration_text),
+            'thumbnail': thumbnail
+        })
+
+        if len(results) >= limit:
+            break
+
+    return results
+
 def download_youtube_to_mp3(url, user_id, progress_callback=None):
     """Descarga un video de YouTube como MP3"""
     if yt_dlp is None:
@@ -943,15 +1049,7 @@ def search_youtube():
             search = VideosSearch(query, limit=10)
             for item in search.result().get('result', []):
                 duration_text = item.get('duration') or ''
-                duration = 0
-                if duration_text:
-                    parts = [int(p) for p in duration_text.split(':') if p.isdigit()]
-                    if len(parts) == 3:
-                        duration = parts[0] * 3600 + parts[1] * 60 + parts[2]
-                    elif len(parts) == 2:
-                        duration = parts[0] * 60 + parts[1]
-                    elif len(parts) == 1:
-                        duration = parts[0]
+                duration = duration_to_seconds(duration_text)
 
                 video_id = item.get('id', '')
                 results.append({
@@ -962,7 +1060,8 @@ def search_youtube():
                     'thumbnail': (item.get('thumbnails') or [{}])[0].get('url', '')
                 })
 
-            return jsonify({'success': True, 'results': results})
+            if results:
+                return jsonify({'success': True, 'results': results})
         except Exception as e:
             app.logger.warning(f'Fallback a yt-dlp para search: {e}')
 
@@ -993,9 +1092,16 @@ def search_youtube():
                     'thumbnail': entry.get('thumbnail')
                 })
 
-        return jsonify({'success': True, 'results': results})
-    except Exception:
-        return jsonify({'success': False, 'message': 'Error al buscar en YouTube. Intenta con otra palabra clave.'}), 502
+        if results:
+            return jsonify({'success': True, 'results': results})
+    except Exception as e:
+        app.logger.warning(f'Fallback a parser HTML para search: {e}')
+
+    html_results = search_youtube_html(query, limit=10)
+    if html_results:
+        return jsonify({'success': True, 'results': html_results})
+
+    return jsonify({'success': False, 'message': 'Error al buscar en YouTube. Intenta con otra palabra clave.'}), 502
 
 @app.route('/api/suggest-download', methods=['POST'])
 @login_required
