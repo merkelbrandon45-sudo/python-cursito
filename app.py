@@ -137,13 +137,19 @@ MUSIC_FOLDER = os.path.join(os.path.dirname(__file__), 'descargas')
 # Clave de cifrado para datos en disco (debe guardarse segura en producción)
 ENCRYPTION_KEY = os.environ.get('BRAUTI_ENC_KEY')
 if not ENCRYPTION_KEY:
-    ENCRYPTION_KEY = 'brauti_' + datetime.now().strftime('%Y%m%d%H%M%S')
+    # Fallback seguro: generar una clave Fernet válida cuando no se provee env var.
+    ENCRYPTION_KEY = Fernet.generate_key().decode() if Fernet is not None else ''
 
 if Fernet is None:
     print('Aviso: cryptography no está instalado; se usará almacenamiento JSON sin cifrar. Instala pip install cryptography para cifrado.')
     FERNET = None
 else:
-    FERNET = Fernet(ENCRYPTION_KEY.encode())
+    try:
+        FERNET = Fernet(ENCRYPTION_KEY.encode())
+    except Exception:
+        print('Aviso: BRAUTI_ENC_KEY inválida; se generará una clave temporal para evitar caída en arranque.')
+        ENCRYPTION_KEY = Fernet.generate_key().decode()
+        FERNET = Fernet(ENCRYPTION_KEY.encode())
 
 # Usuario principal (ya existe)
 DEFAULT_USERS = {
