@@ -17,6 +17,8 @@ from datetime import datetime
 from urllib.parse import quote_plus
 import re
 import subprocess
+import base64
+import tempfile
 
 try:
     from textblob import TextBlob
@@ -583,6 +585,26 @@ def download_with_pytubefix(url, user_id):
         return {'success': False, 'message': f'Error al descargar (fallback): {str(e)}'}
 
 
+def get_cookiefile_from_env():
+    """Crea un cookiefile temporal desde YTDLP_COOKIE_B64 (base64 del cookies.txt)."""
+    b64_value = os.environ.get('YTDLP_COOKIE_B64', '').strip()
+    if not b64_value:
+        return None
+
+    try:
+        raw = base64.b64decode(b64_value)
+        cookie_text = raw.decode('utf-8', errors='ignore')
+        if not cookie_text.strip():
+            return None
+
+        fd, path = tempfile.mkstemp(prefix='yt_cookies_', suffix='.txt')
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(cookie_text)
+        return path
+    except Exception:
+        return None
+
+
 def duration_to_seconds(duration_text):
     if not duration_text:
         return 0
@@ -697,6 +719,7 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
         return {'success': False, 'message': dep_msg}
 
     try:
+        cookiefile_path = get_cookiefile_from_env()
         ydl_opts = {
             'format': 'bestaudio/best',
             'postprocessors': [{
@@ -722,6 +745,9 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
                 }
             },
         }
+
+        if cookiefile_path:
+            ydl_opts['cookiefile'] = cookiefile_path
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -757,12 +783,18 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
         if is_bot_check:
             return {
                 'success': False,
-                'message': 'No se pudo descargar esta canción ahora. Prueba otra opción.'
+                'message': 'No se pudo descargar esta canción ahora. Si te pasa con todas, configura YTDLP_COOKIE_B64 en Render y redeploy.'
             }
         return {
             'success': False,
             'message': f'Error al descargar: {err}'
         }
+    finally:
+        try:
+            if 'cookiefile_path' in locals() and cookiefile_path and os.path.exists(cookiefile_path):
+                os.remove(cookiefile_path)
+        except Exception:
+            pass
 
 # Rutas principales
 @app.route('/')
@@ -1156,6 +1188,7 @@ def search_youtube():
 
     try:
         query_url = f"ytsearch10:{query}"
+        cookiefile_path = get_cookiefile_from_env()
         ydl_opts = {
             'quiet': True,
             'simulate': True,
@@ -1165,6 +1198,9 @@ def search_youtube():
             },
             'socket_timeout': 30,
         }
+
+        if cookiefile_path:
+            ydl_opts['cookiefile'] = cookiefile_path
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(query_url, download=False)
@@ -1181,6 +1217,12 @@ def search_youtube():
             return jsonify({'success': True, 'results': results})
     except Exception as e:
         app.logger.warning(f'Fallback a parser HTML para search: {e}')
+    finally:
+        try:
+            if 'cookiefile_path' in locals() and cookiefile_path and os.path.exists(cookiefile_path):
+                os.remove(cookiefile_path)
+        except Exception:
+            pass
 
     html_results = search_youtube_html(query, limit=10)
     if html_results:
