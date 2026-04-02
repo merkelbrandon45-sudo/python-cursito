@@ -43,6 +43,7 @@ if (installBtn) {
 // Cargar canciones al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     loadSongs();
+    loadPlaylists();
     
     // Eventos
     downloadBtn.addEventListener('click', handleDownload);
@@ -147,8 +148,8 @@ async function handleDownload() {
             },
             body: JSON.stringify({ url })
         });
-        
-        const data = await response.json();
+
+        const data = await response.json().catch(() => ({ success: false, message: 'Respuesta inválida del servidor' }));
         
         if (data.success) {
             showMessage(`✓ ${data.message}`, 'success');
@@ -328,8 +329,14 @@ async function handleSearch() {
     }
 
     try {
+        showMessage('Buscando canciones...', 'loading');
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        const data = await resp.json();
+        const data = await resp.json().catch(() => ({ success: false, message: 'Respuesta inválida del servidor' }));
+
+        if (!resp.ok) {
+            showMessage(data.message || 'Error en búsqueda', 'error');
+            return;
+        }
 
         if (!data.success) {
             showMessage(data.message || 'Error en búsqueda', 'error');
@@ -337,8 +344,9 @@ async function handleSearch() {
         }
 
         renderSearchResults(data.results);
+        showMessage('Resultados actualizados', 'success');
     } catch (error) {
-        showMessage('Error al buscar canciones', 'error');
+        showMessage('Error al buscar canciones. Reintenta en unos segundos.', 'error');
         console.error('Error:', error);
     }
 }
@@ -349,7 +357,7 @@ function renderSearchResults(results) {
         return;
     }
 
-    searchResults.innerHTML = results.map(r => `
+    searchResults.innerHTML = results.map((r, idx) => `
         <div class="song-card">
             <div class="song-title" title="${r.title}"><i class="fas fa-search"></i> ${r.title}</div>
             <div class="song-size">Duración: ${r.duration ? `${Math.floor(r.duration/60)}:${(r.duration%60).toString().padStart(2,'0')}` : 'Desconocida'}</div>
@@ -360,6 +368,8 @@ function renderSearchResults(results) {
             </div>
         </div>
     `).join('');
+
+    animateCards('#searchResults .song-card');
 }
 
 async function createPlaylist() {
@@ -409,6 +419,7 @@ async function loadPlaylists() {
                 ${pl.songs.map(song => `<div class="song-item">${song} <button class='btn btn-success' onclick='playSong("${song}")'>Reproducir</button></div>`).join('')}
             </div>
         `).join('');
+        animateCards('#playlistsContainer .playlist-card');
     } catch (error) {
         showMessage('Error al cargar playlists', 'error');
         console.error('Error:', error);
@@ -471,4 +482,12 @@ function showSongModal(songData) {
 // Cerrar modal de canción
 function closeSongModal() {
     document.getElementById('songModal').classList.add('hidden');
+}
+
+function animateCards(selector) {
+    const cards = document.querySelectorAll(selector);
+    cards.forEach((card, idx) => {
+        card.style.animationDelay = `${Math.min(idx * 60, 420)}ms`;
+        card.classList.add('reveal');
+    });
 }

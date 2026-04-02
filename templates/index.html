@@ -26,7 +26,7 @@
                 <button id="installBtn" class="btn-logout hidden" type="button">
                     <i class="fas fa-download"></i> Instalar Brauti
                 </button>
-                <a href="/static/brauti.apk" class="btn-logout" download>
+                <a href="{{ url_for('download_apk') }}" class="btn-logout" download>
                     <i class="fas fa-file-download"></i> Descargar APK
                 </a>
                 <a href="{{ url_for('logout') }}" class="btn-logout">
@@ -62,7 +62,7 @@
                 <h2><i class="fas fa-lightbulb"></i> Sugerencias de Música</h2>
                 <div class="suggestions-container">
                     {% for suggestion in suggestions %}
-                    <div class="suggestion-bubble" onclick="downloadSuggestion('{{ suggestion.title }}', '{{ suggestion.url }}')">
+                    <div class="suggestion-bubble" style="animation-delay: {{ loop.index0 * 70 }}ms" onclick="downloadSuggestion('{{ suggestion.title }}', '{{ suggestion.url }}')">
                         <div class="suggestion-content">
                             <i class="fas fa-music"></i>
                             <span class="suggestion-title">{{ suggestion.title }}</span>

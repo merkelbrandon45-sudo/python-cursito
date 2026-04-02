@@ -176,8 +176,8 @@ DEFAULT_USERS = {
     }
 }
 
-# Si quieres forzar ahora que bran cree contraseña nueva (por bug anterior), eliminala al arrancar.
-RESET_BRAN_PASSWORD_ON_START = True
+# Solo habilitar reset de Bran por variable de entorno en casos puntuales.
+RESET_BRAN_PASSWORD_ON_START = os.environ.get('RESET_BRAN_PASSWORD_ON_START', 'false').lower() == 'true'
 
 def encrypt_data(data):
     payload = json.dumps(data, ensure_ascii=False).encode('utf-8')
@@ -500,13 +500,17 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
             'quiet': False,
             'no_warnings': False,
             'socket_timeout': 30,
+            'retries': 5,
+            'fragment_retries': 5,
+            'extractor_retries': 3,
+            'noplaylist': True,
+            'geo_bypass': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             },
-            'age_limit': None,
             'extractor_args': {
                 'youtube': {
-                    'skip': ['webpage'],
+                    'player_client': ['android', 'web', 'ios'],
                 }
             },
         }
@@ -547,9 +551,15 @@ def download_youtube_to_mp3(url, user_id, progress_callback=None):
                 'sentiment_emoji': emoji
             }
     except Exception as e:
+        err = str(e)
+        if 'Sign in to confirm you\'re not a bot' in err:
+            return {
+                'success': False,
+                'message': 'YouTube bloqueó esta descarga temporalmente. Prueba otra canción o reintenta en unos minutos.'
+            }
         return {
             'success': False,
-            'message': f'Error al descargar: {str(e)}'
+            'message': f'Error al descargar: {err}'
         }
 
 # Rutas principales

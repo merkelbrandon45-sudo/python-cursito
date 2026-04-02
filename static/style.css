@@ -9,6 +9,14 @@ body {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     padding: 20px;
+    background-size: 200% 200%;
+    animation: bgShift 14s ease infinite;
+}
+
+@keyframes bgShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .container {
@@ -18,6 +26,7 @@ body {
     border-radius: 15px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     overflow: hidden;
+    animation: fadeIn 0.45s ease-out;
 }
 
 header {
@@ -75,6 +84,22 @@ main {
 
 section {
     margin-bottom: 40px;
+    opacity: 0;
+    transform: translateY(12px);
+    animation: sectionIn 0.45s ease-out forwards;
+}
+
+section:nth-of-type(1) { animation-delay: 0.05s; }
+section:nth-of-type(2) { animation-delay: 0.1s; }
+section:nth-of-type(3) { animation-delay: 0.15s; }
+section:nth-of-type(4) { animation-delay: 0.2s; }
+section:nth-of-type(5) { animation-delay: 0.25s; }
+
+@keyframes sectionIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 h2 {
@@ -352,6 +377,21 @@ footer {
     animation: fadeIn 0.3s ease-out;
 }
 
+.song-card.reveal,
+.playlist-card.reveal,
+.suggestion-bubble {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: cardReveal 0.45s ease-out forwards;
+}
+
+@keyframes cardReveal {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Sección de sugerencias */
 .suggestions-section {
     background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
@@ -394,7 +434,7 @@ footer {
 .suggestion-bubble:hover {
     border-color: #2196F3;
     box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
-    transform: translateY(-2px);
+    transform: translateY(-4px) scale(1.01);
 }
 
 .suggestion-content {
